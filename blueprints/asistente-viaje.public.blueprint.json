@@ -1,0 +1,2143 @@
+{
+  "name": "Asistente de viaje (plantilla pública)",
+  "flow": [
+    {
+      "id": 2,
+      "module": "telegram:WatchUpdates",
+      "version": 1,
+      "parameters": {
+        "__IMTHOOK__": null
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 450
+        },
+        "restore": {
+          "parameters": {
+            "__IMTHOOK__": {
+              "data": {
+                "editable": "false"
+              },
+              "label": "RECONFIGURAR_WEBHOOK_EN_MAKE"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTHOOK__",
+            "type": "hook:telegramapi",
+            "label": "Webhook",
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 20,
+      "module": "datastore:GetRecord",
+      "version": 1,
+      "parameters": {
+        "datastore": null
+      },
+      "filter": null,
+      "mapper": {
+        "key": "{{2.message.chat.id}}",
+        "returnWrapped": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 450
+        },
+        "restore": {
+          "parameters": {
+            "datastore": {
+              "label": "RECONFIGURAR_DATA_STORE_EN_MAKE"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "datastore",
+            "type": "datastore",
+            "label": "Data store",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "key",
+            "type": "text",
+            "label": "Key",
+            "required": true
+          },
+          {
+            "name": "returnWrapped",
+            "type": "boolean",
+            "label": "Return Wrapped Output",
+            "required": true
+          }
+        ],
+        "interface": [
+          {
+            "name": "key",
+            "type": "text",
+            "label": "Key"
+          },
+          {
+            "name": "data",
+            "spec": [
+              {
+                "help": "El chat en si mismo",
+                "name": "Historial",
+                "type": "text",
+                "label": null,
+                "default": null,
+                "required": false,
+                "multiline": false
+              }
+            ],
+            "type": "collection",
+            "label": "Record"
+          }
+        ],
+        "advanced": true
+      }
+    },
+    {
+      "id": 3,
+      "module": "http:MakeRequest",
+      "version": 4,
+      "parameters": {
+        "tlsType": "",
+        "authenticationType": "noAuth"
+      },
+      "mapper": {
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "method": "post",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Authorization",
+            "value": "Bearer REEMPLAZAR_CON_API_KEY_DE_GROQ"
+          }
+        ],
+        "contentType": "json",
+        "inputMethod": "jsonString",
+        "shareCookies": false,
+        "parseResponse": true,
+        "allowRedirects": true,
+        "stopOnHttpError": true,
+        "jsonStringBodyContent": "{\n  \"model\": \"openai/gpt-oss-120b\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un asistente conversacional para un viaje concreto. Responde usando únicamente la información del itinerario de ejemplo que se muestra a continuación. Si falta un dato, dilo claramente y no inventes reservas, horarios ni confirmaciones.\\n\\nDOCUMENTOS: Cuando soliciten un boleto, una reserva, una póliza, un comprobante o un archivo, llama a la herramienta buscar_documento con los criterios disponibles. Nunca afirmes que un archivo fue localizado antes de que Make confirme la búsqueda. Si falta información esencial para buscar, pide solo ese dato.\\n\\nHISTORIAL: Interpreta aclaraciones como «el de Ana» junto a los mensajes anteriores. No pidas de nuevo datos que ya están en el contexto.\\n\\nCONSULTAS GENERALES: Responde de manera clara y breve basándote en el itinerario. La información siguiente es ficticia y se usa solo para demostrar la estructura; sustituirla por información privada en Make antes de utilizar el bot.\\n\\n--- ITINERARIO FICTICIO DE DEMOSTRACIÓN ---\\nVIAJEROS: Ana Demo y Bruno Demo.\\nRUTA: Lisboa → Oporto.\\nTRANSPORTE: tren de Lisboa a Oporto, 12 de mayo, horario pendiente de confirmación.\\nALOJAMIENTO: hotel de ejemplo en Lisboa y hotel de ejemplo en Oporto.\\nDOCUMENTOS: reservas de transporte y hotel guardadas en la carpeta privada designada en Google Drive.\\n--- FIN DEL EJEMPLO ---\\n\\nPARÁMETROS PARA buscar_documento:\\n- tipo_documento: palabra breve del tipo de archivo, por ejemplo «boleto», «hotel», «seguro» o «tren».\\n- destino_o_lugar: una palabra clave principal, si está disponible.\\n- pasajero: nombre del pasajero, si se mencionó.\\nLa búsqueda implementada por Make usa nombres de archivo, no el contenido del documento.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"El usuario que te habla se llama {{2.message.chat.first_name}}.\\n\\nHISTORIAL PREVIO DE LA CONVERSACIÓN:\\n{{escapeJSON(20.data.Historial)}}\\n\\nMENSAJE ACTUAL DEL USUARIO:\\n{{escapeJSON(2.message.text)}}\"\n    }\n  ],\n  \"tools\": [\n    {\n      \"type\": \"function\",\n      \"function\": {\n        \"name\": \"buscar_documento\",\n        \"description\": \"Solicitud de búsqueda de archivo en la carpeta configurada de Google Drive; Make ejecuta esta acción.\",\n        \"parameters\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"tipo_documento\": {\n              \"type\": \"string\",\n              \"description\": \"Categoría breve. Ejemplos: boleto, hotel, seguro, tren, reserva.\"\n            },\n            \"destino_o_lugar\": {\n              \"type\": \"string\",\n              \"description\": \"Destino, aerolínea o lugar. Ejemplos: Lisboa, Oporto.\"\n            },\n            \"pasajero\": {\n              \"type\": \"string\",\n              \"description\": \"Nombre del viajero si está disponible. Ejemplos: Ana, Bruno.\"\n            }\n          },\n          \"required\": [\n            \"tipo_documento\"\n          ]\n        }\n      }\n    }\n  ],\n  \"tool_choice\": \"auto\"\n}",
+        "requestCompressedContent": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 450
+        },
+        "restore": {
+          "expect": {
+            "method": {
+              "mode": "chose",
+              "label": "POST"
+            },
+            "headers": {
+              "mode": "chose",
+              "items": [
+                null,
+                null
+              ]
+            },
+            "contentType": {
+              "label": "application/jsonEnter data in the JSON format, as a string or using a data structure."
+            },
+            "inputMethod": {
+              "label": "JSON stringEnter the JSON body as a raw text string. If values contain JSON reserved characters, you must escape them manually."
+            },
+            "shareCookies": {
+              "mode": "chose"
+            },
+            "parseResponse": {
+              "mode": "chose"
+            },
+            "allowRedirects": {
+              "mode": "chose"
+            },
+            "paginationType": {
+              "label": "Empty"
+            },
+            "queryParameters": {
+              "mode": "chose"
+            },
+            "stopOnHttpError": {
+              "mode": "chose"
+            },
+            "requestCompressedContent": {
+              "mode": "chose"
+            }
+          },
+          "parameters": {
+            "tlsType": {
+              "label": "Empty"
+            },
+            "authenticationType": {
+              "label": "No authenticationUse when no credentials are required for the request."
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "authenticationType",
+            "type": "select",
+            "label": "Authentication type",
+            "required": true,
+            "validate": {
+              "enum": [
+                "noAuth",
+                "apiKey",
+                "basicAuth",
+                "oAuth"
+              ]
+            }
+          },
+          {
+            "name": "tlsType",
+            "type": "select",
+            "label": "Transport layer security (TLS)",
+            "validate": {
+              "enum": [
+                "mTls",
+                "tls"
+              ]
+            }
+          },
+          {
+            "name": "proxyKeychain",
+            "type": "keychain:proxy",
+            "label": "Proxy"
+          }
+        ],
+        "expect": [
+          {
+            "name": "url",
+            "type": "url",
+            "label": "URL",
+            "required": true
+          },
+          {
+            "name": "method",
+            "type": "select",
+            "label": "Method",
+            "required": true,
+            "validate": {
+              "enum": [
+                "get",
+                "head",
+                "post",
+                "put",
+                "patch",
+                "delete",
+                "options"
+              ]
+            }
+          },
+          {
+            "name": "headers",
+            "spec": {
+              "name": "value",
+              "spec": [
+                {
+                  "name": "name",
+                  "type": "text",
+                  "label": "Name",
+                  "required": true,
+                  "validate": {
+                    "pattern": "^[-!#$%&'*+.^_`|~0-9A-Za-z]+$"
+                  }
+                },
+                {
+                  "name": "value",
+                  "type": "text",
+                  "label": "Value"
+                }
+              ],
+              "type": "collection",
+              "label": "Header"
+            },
+            "type": "array",
+            "label": "Headers"
+          },
+          {
+            "name": "queryParameters",
+            "spec": {
+              "name": "value",
+              "spec": [
+                {
+                  "name": "name",
+                  "type": "text",
+                  "label": "Name",
+                  "required": true
+                },
+                {
+                  "name": "value",
+                  "type": "text",
+                  "label": "Value"
+                }
+              ],
+              "type": "collection",
+              "label": "Parameter"
+            },
+            "type": "array",
+            "label": "Query parameters"
+          },
+          {
+            "name": "contentType",
+            "type": "select",
+            "label": "Body content type",
+            "validate": {
+              "enum": [
+                "json",
+                "multipart",
+                "urlEncoded",
+                "custom"
+              ]
+            }
+          },
+          {
+            "name": "parseResponse",
+            "type": "boolean",
+            "label": "Parse response",
+            "required": true
+          },
+          {
+            "name": "stopOnHttpError",
+            "type": "boolean",
+            "label": "Return error if HTTP request fails",
+            "required": true
+          },
+          {
+            "name": "timeout",
+            "type": "uinteger",
+            "label": "Timeout",
+            "validate": {
+              "max": 300,
+              "min": 1
+            }
+          },
+          {
+            "name": "allowRedirects",
+            "type": "boolean",
+            "label": "Allow redirects",
+            "required": true
+          },
+          {
+            "name": "shareCookies",
+            "type": "boolean",
+            "label": "Share cookies with other HTTP modules",
+            "required": true
+          },
+          {
+            "name": "requestCompressedContent",
+            "type": "boolean",
+            "label": "Request compressed content",
+            "required": true
+          },
+          {
+            "name": "inputMethod",
+            "type": "select",
+            "label": "Body input method",
+            "required": true,
+            "validate": {
+              "enum": [
+                "dataStructure",
+                "jsonString"
+              ]
+            }
+          },
+          {
+            "name": "jsonStringBodyContent",
+            "type": "text",
+            "label": "Body content",
+            "required": true
+          },
+          {
+            "name": "paginationType",
+            "type": "select",
+            "label": "Pagination type",
+            "validate": {
+              "enum": [
+                "offsetBased",
+                "pageBased",
+                "urlBased",
+                "tokenBased"
+              ]
+            }
+          }
+        ],
+        "interface": [
+          {
+            "name": "data",
+            "type": "any",
+            "label": "Data"
+          },
+          {
+            "name": "statusCode",
+            "type": "number",
+            "label": "Status Code"
+          },
+          {
+            "name": "headers",
+            "spec": [
+              {
+                "name": "content-length",
+                "type": "text",
+                "label": "Content-Length"
+              },
+              {
+                "name": "content-encoding",
+                "type": "text",
+                "label": "Content-Encoding"
+              },
+              {
+                "name": "content-type",
+                "type": "text",
+                "label": "Content-Type"
+              },
+              {
+                "name": "server",
+                "type": "text",
+                "label": "Server"
+              },
+              {
+                "name": "cache-control",
+                "type": "text",
+                "label": "Cache-Control"
+              },
+              {
+                "name": "set-cookie",
+                "spec": {
+                  "type": "text"
+                },
+                "type": "array",
+                "label": "Set-Cookie"
+              }
+            ],
+            "type": "collection",
+            "label": "Headers"
+          }
+        ],
+        "advanced": true
+      },
+      "onerror": [
+        {
+          "id": 30,
+          "module": "google-email:sendAnEmail",
+          "version": 4,
+          "parameters": {
+            "__IMTCONN__": null
+          },
+          "mapper": {
+            "to": [
+              "avisos@example.invalid"
+            ],
+            "content": "El asistente no pudo procesar la respuesta de IA. Revisa si el modelo ha cambiado o la API está fuera de línea. La ejecución ha quedado guardada en Incomplete Executions.",
+            "subject": "🚨 ALERTA: Fallo en el Módulo de IA del Asistente de Viaje",
+            "bodyType": "rawHtml"
+          },
+          "metadata": {
+            "designer": {
+              "x": 590,
+              "y": 775
+            },
+            "restore": {
+              "expect": {
+                "cc": {
+                  "mode": "chose"
+                },
+                "to": {
+                  "mode": "chose",
+                  "items": [
+                    null
+                  ]
+                },
+                "bcc": {
+                  "mode": "chose"
+                },
+                "from": {
+                  "mode": "chose"
+                },
+                "bodyType": {
+                  "label": "Raw HTML"
+                },
+                "attachments": {
+                  "mode": "chose"
+                },
+                "emailHeaders": {
+                  "mode": "chose"
+                }
+              },
+              "parameters": {
+                "__IMTCONN__": {
+                  "data": {
+                    "scoped": "true",
+                    "connection": "google-email"
+                  },
+                  "label": "RECONFIGURAR_CONEXION_EN_MAKE"
+                }
+              }
+            },
+            "parameters": [
+              {
+                "name": "__IMTCONN__",
+                "type": "account:google-email",
+                "label": "Connection",
+                "required": true
+              }
+            ],
+            "expect": [
+              {
+                "name": "to",
+                "spec": {
+                  "name": "value",
+                  "type": "email",
+                  "label": "Recipient email address",
+                  "required": true,
+                  "validate": true
+                },
+                "type": "array",
+                "label": "To",
+                "required": true
+              },
+              {
+                "name": "subject",
+                "type": "text",
+                "label": "Subject"
+              },
+              {
+                "name": "bodyType",
+                "type": "select",
+                "label": "Body type",
+                "required": true,
+                "validate": {
+                  "enum": [
+                    "rawHtml",
+                    "collection"
+                  ]
+                }
+              },
+              {
+                "name": "attachments",
+                "spec": {
+                  "name": "value",
+                  "spec": [
+                    {
+                      "name": "filename",
+                      "type": "filename",
+                      "label": "File name",
+                      "required": true,
+                      "semantic": "file:name"
+                    },
+                    {
+                      "name": "data",
+                      "type": "buffer",
+                      "label": "Data",
+                      "required": true,
+                      "semantic": "file:data"
+                    }
+                  ],
+                  "type": "collection",
+                  "label": "Attachment"
+                },
+                "type": "array",
+                "label": "Attachments"
+              },
+              {
+                "name": "from",
+                "type": "select",
+                "label": "From"
+              },
+              {
+                "name": "cc",
+                "spec": {
+                  "name": "value",
+                  "type": "email",
+                  "label": "Recipient email address"
+                },
+                "type": "array",
+                "label": "CC recipients"
+              },
+              {
+                "name": "bcc",
+                "spec": {
+                  "name": "value",
+                  "type": "email",
+                  "label": "Recipient email address"
+                },
+                "type": "array",
+                "label": "BCC recipients"
+              },
+              {
+                "name": "emailHeaders",
+                "spec": {
+                  "name": "value",
+                  "spec": [
+                    {
+                      "name": "key",
+                      "type": "text",
+                      "label": "Key",
+                      "required": true
+                    },
+                    {
+                      "name": "value",
+                      "type": "text",
+                      "label": "Value"
+                    }
+                  ],
+                  "type": "collection",
+                  "label": "Email header"
+                },
+                "type": "array",
+                "label": "Additional email headers"
+              },
+              {
+                "name": "content",
+                "type": "text",
+                "label": "Content"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "module": "builtin:BasicRouter",
+      "version": 1,
+      "mapper": null,
+      "metadata": {
+        "designer": {
+          "x": 924,
+          "y": 444
+        }
+      },
+      "routes": [
+        {
+          "flow": [
+            {
+              "id": 4,
+              "module": "telegram:SendReplyMessage",
+              "version": 1,
+              "parameters": {
+                "__IMTCONN__": null
+              },
+              "filter": {
+                "name": "Respuesta de texto",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{3.data.choices[].message.content}}",
+                      "o": "exist"
+                    }
+                  ]
+                ]
+              },
+              "mapper": {
+                "text": "{{3.data.choices[].message.content}}",
+                "chatId": "{{2.message.chat.id}}",
+                "parseMode": "",
+                "replyMarkup": "",
+                "messageThreadId": "",
+                "replyToMessageId": "",
+                "replyMarkupAssembleType": "reply_markup_enter"
+              },
+              "metadata": {
+                "designer": {
+                  "x": 1224,
+                  "y": 144
+                },
+                "restore": {
+                  "expect": {
+                    "parseMode": {
+                      "label": "Empty"
+                    },
+                    "disableNotification": {
+                      "mode": "chose"
+                    },
+                    "replyMarkupAssembleType": {
+                      "label": "Enter the Reply Markup"
+                    }
+                  },
+                  "parameters": {
+                    "__IMTCONN__": {
+                      "data": {
+                        "scoped": "true",
+                        "connection": "telegram"
+                      },
+                      "label": "RECONFIGURAR_CONEXION_EN_MAKE"
+                    }
+                  }
+                },
+                "parameters": [
+                  {
+                    "name": "__IMTCONN__",
+                    "type": "account:telegram",
+                    "label": "Connection",
+                    "required": true
+                  }
+                ],
+                "expect": [
+                  {
+                    "name": "chatId",
+                    "type": "text",
+                    "label": "Chat ID",
+                    "required": true
+                  },
+                  {
+                    "name": "text",
+                    "type": "text",
+                    "label": "Text",
+                    "required": true
+                  },
+                  {
+                    "name": "messageThreadId",
+                    "type": "number",
+                    "label": "Message Thread ID"
+                  },
+                  {
+                    "name": "parseMode",
+                    "type": "select",
+                    "label": "Parse Mode",
+                    "validate": {
+                      "enum": [
+                        "Markdown",
+                        "HTML"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "disableNotification",
+                    "type": "boolean",
+                    "label": "Disable Notifications"
+                  },
+                  {
+                    "name": "disableWebPagePreview",
+                    "type": "boolean",
+                    "label": "Disable Link Previews"
+                  },
+                  {
+                    "name": "replyToMessageId",
+                    "type": "number",
+                    "label": "Original Message ID"
+                  },
+                  {
+                    "name": "replyMarkupAssembleType",
+                    "type": "select",
+                    "label": "Enter/Assemble the Reply Markup Field",
+                    "validate": {
+                      "enum": [
+                        "reply_markup_enter",
+                        "reply_markup_assemble"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "replyMarkup",
+                    "type": "text",
+                    "label": "Reply Markup"
+                  }
+                ]
+              }
+            },
+            {
+              "id": 21,
+              "module": "datastore:AddRecord",
+              "version": 1,
+              "parameters": {
+                "datastore": null
+              },
+              "mapper": {
+                "key": "{{2.message.chat.id}}",
+                "data": {
+                  "Historial": "{{20.data.Historial}}\nUsuario: {{2.message.text}}\nAsistente: {{3.data.choices[1].message.content}}"
+                },
+                "overwrite": true
+              },
+              "metadata": {
+                "designer": {
+                  "x": 1524,
+                  "y": 144
+                },
+                "restore": {
+                  "expect": {
+                    "overwrite": {
+                      "mode": "chose"
+                    }
+                  },
+                  "parameters": {
+                    "datastore": {
+                      "label": "RECONFIGURAR_DATA_STORE_EN_MAKE"
+                    }
+                  }
+                },
+                "parameters": [
+                  {
+                    "name": "datastore",
+                    "type": "datastore",
+                    "label": "Data store",
+                    "required": true
+                  }
+                ],
+                "expect": [
+                  {
+                    "name": "key",
+                    "type": "text",
+                    "label": "Key"
+                  },
+                  {
+                    "name": "overwrite",
+                    "type": "boolean",
+                    "label": "Overwrite an existing record",
+                    "required": true
+                  },
+                  {
+                    "name": "data",
+                    "spec": [
+                      {
+                        "name": "Historial",
+                        "type": "text",
+                        "label": null
+                      }
+                    ],
+                    "type": "collection",
+                    "label": "Record"
+                  }
+                ]
+              },
+              "onerror": [
+                {
+                  "id": 24,
+                  "module": "google-email:sendAnEmail",
+                  "version": 4,
+                  "parameters": {
+                    "__IMTCONN__": null
+                  },
+                  "mapper": {
+                    "to": [
+                      "avisos@example.invalid"
+                    ],
+                    "content": "Hola,\r\n\r\nEl Data Store de tu asistente de Telegram ha alcanzado su límite de almacenamiento y no se pudo guardar la última conversación.\r\n\r\nLa ejecución ha quedado congelada en \"Incomplete Executions\". Por favor, ingresa a Make para liberar espacio y reprocesar el mensaje.\n\nRECUERDA: Debes ir a la seccion de \"Incomplete Executions\", presionar Resolve / Retry, y esa conversación guardada terminará de procesarse sin haberse perdido ningún dato.",
+                    "subject": "🚨 ALERTA: Data Store Lleno en Asistente de Telegram",
+                    "bodyType": "rawHtml"
+                  },
+                  "metadata": {
+                    "designer": {
+                      "x": 1520,
+                      "y": -147
+                    },
+                    "restore": {
+                      "expect": {
+                        "cc": {
+                          "mode": "chose"
+                        },
+                        "to": {
+                          "mode": "chose",
+                          "items": [
+                            null
+                          ]
+                        },
+                        "bcc": {
+                          "mode": "chose"
+                        },
+                        "from": {
+                          "mode": "chose"
+                        },
+                        "bodyType": {
+                          "label": "Raw HTML"
+                        },
+                        "attachments": {
+                          "mode": "chose"
+                        },
+                        "emailHeaders": {
+                          "mode": "chose"
+                        }
+                      },
+                      "parameters": {
+                        "__IMTCONN__": {
+                          "data": {
+                            "scoped": "true",
+                            "connection": "google-email"
+                          },
+                          "label": "RECONFIGURAR_CONEXION_EN_MAKE"
+                        }
+                      }
+                    },
+                    "parameters": [
+                      {
+                        "name": "__IMTCONN__",
+                        "type": "account:google-email",
+                        "label": "Connection",
+                        "required": true
+                      }
+                    ],
+                    "expect": [
+                      {
+                        "name": "to",
+                        "spec": {
+                          "name": "value",
+                          "type": "email",
+                          "label": "Recipient email address",
+                          "required": true,
+                          "validate": true
+                        },
+                        "type": "array",
+                        "label": "To",
+                        "required": true
+                      },
+                      {
+                        "name": "subject",
+                        "type": "text",
+                        "label": "Subject"
+                      },
+                      {
+                        "name": "bodyType",
+                        "type": "select",
+                        "label": "Body type",
+                        "required": true,
+                        "validate": {
+                          "enum": [
+                            "rawHtml",
+                            "collection"
+                          ]
+                        }
+                      },
+                      {
+                        "name": "attachments",
+                        "spec": {
+                          "name": "value",
+                          "spec": [
+                            {
+                              "name": "filename",
+                              "type": "filename",
+                              "label": "File name",
+                              "required": true,
+                              "semantic": "file:name"
+                            },
+                            {
+                              "name": "data",
+                              "type": "buffer",
+                              "label": "Data",
+                              "required": true,
+                              "semantic": "file:data"
+                            }
+                          ],
+                          "type": "collection",
+                          "label": "Attachment"
+                        },
+                        "type": "array",
+                        "label": "Attachments"
+                      },
+                      {
+                        "name": "from",
+                        "type": "select",
+                        "label": "From"
+                      },
+                      {
+                        "name": "cc",
+                        "spec": {
+                          "name": "value",
+                          "type": "email",
+                          "label": "Recipient email address"
+                        },
+                        "type": "array",
+                        "label": "CC recipients"
+                      },
+                      {
+                        "name": "bcc",
+                        "spec": {
+                          "name": "value",
+                          "type": "email",
+                          "label": "Recipient email address"
+                        },
+                        "type": "array",
+                        "label": "BCC recipients"
+                      },
+                      {
+                        "name": "emailHeaders",
+                        "spec": {
+                          "name": "value",
+                          "spec": [
+                            {
+                              "name": "key",
+                              "type": "text",
+                              "label": "Key",
+                              "required": true
+                            },
+                            {
+                              "name": "value",
+                              "type": "text",
+                              "label": "Value"
+                            }
+                          ],
+                          "type": "collection",
+                          "label": "Email header"
+                        },
+                        "type": "array",
+                        "label": "Additional email headers"
+                      },
+                      {
+                        "name": "content",
+                        "type": "text",
+                        "label": "Content"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 10,
+              "module": "json:ParseJSON",
+              "version": 1,
+              "parameters": {},
+              "filter": {
+                "name": "Funcion buscar documento",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{3.data.choices[].message.tool_calls[].function.name}}",
+                      "b": "buscar_documento",
+                      "o": "text:equal"
+                    }
+                  ]
+                ]
+              },
+              "mapper": {
+                "json": "{{3.data.choices[].message.tool_calls[].function.arguments}}"
+              },
+              "metadata": {
+                "designer": {
+                  "x": 1224,
+                  "y": 594
+                },
+                "restore": {},
+                "parameters": [
+                  {
+                    "name": "type",
+                    "type": "udt",
+                    "label": "Data structure"
+                  }
+                ],
+                "expect": [
+                  {
+                    "name": "json",
+                    "type": "text",
+                    "label": "JSON string",
+                    "required": true
+                  }
+                ]
+              }
+            },
+            {
+              "id": 16,
+              "module": "google-drive:makeApiCall",
+              "version": 4,
+              "parameters": {
+                "__IMTCONN__": null
+              },
+              "mapper": {
+                "qs": [
+                  {
+                    "key": "q",
+                    "value": "'REEMPLAZAR_ID_CARPETA_DRIVE' in parents and name contains '{{10.tipo_documento}}'\r\n{{if(10.destino_o_lugar; \" and name contains '\" + 10.destino_o_lugar + \"'\"; \"\")}}\r\n{{if(10.destino_o_lugar + 10.pasajero; \" and name contains '\" + 10.pasajero + \"'\"; \"\")}}\r\nand trashed = false"
+                  },
+                  {
+                    "key": "fields",
+                    "value": "files(id, name)"
+                  }
+                ],
+                "url": "/v3/files",
+                "method": "GET",
+                "headers": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ]
+              },
+              "metadata": {
+                "designer": {
+                  "x": 1524,
+                  "y": 594
+                },
+                "restore": {
+                  "expect": {
+                    "qs": {
+                      "mode": "chose",
+                      "items": [
+                        null,
+                        null
+                      ]
+                    },
+                    "method": {
+                      "mode": "chose",
+                      "label": "GET"
+                    },
+                    "headers": {
+                      "mode": "chose",
+                      "items": [
+                        null
+                      ]
+                    }
+                  },
+                  "parameters": {
+                    "__IMTCONN__": {
+                      "data": {
+                        "scoped": "true",
+                        "connection": "google-drive"
+                      },
+                      "label": "RECONFIGURAR_CONEXION_EN_MAKE"
+                    }
+                  }
+                },
+                "parameters": [
+                  {
+                    "name": "__IMTCONN__",
+                    "type": "account:google-restricted,google-drive",
+                    "label": "Connection",
+                    "required": true
+                  }
+                ],
+                "expect": [
+                  {
+                    "name": "url",
+                    "type": "text",
+                    "label": "URL",
+                    "required": true
+                  },
+                  {
+                    "name": "method",
+                    "type": "select",
+                    "label": "Method",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "PATCH",
+                        "DELETE"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "headers",
+                    "spec": [
+                      {
+                        "name": "key",
+                        "type": "text",
+                        "label": "Key"
+                      },
+                      {
+                        "name": "value",
+                        "type": "text",
+                        "label": "Value"
+                      }
+                    ],
+                    "type": "array",
+                    "label": "Headers"
+                  },
+                  {
+                    "name": "qs",
+                    "spec": [
+                      {
+                        "name": "key",
+                        "type": "text",
+                        "label": "Key"
+                      },
+                      {
+                        "name": "value",
+                        "type": "text",
+                        "label": "Value"
+                      }
+                    ],
+                    "type": "array",
+                    "label": "Query String"
+                  },
+                  {
+                    "name": "body",
+                    "type": "any",
+                    "label": "Body"
+                  }
+                ]
+              }
+            },
+            {
+              "id": 12,
+              "module": "builtin:BasicRouter",
+              "version": 1,
+              "mapper": null,
+              "metadata": {
+                "designer": {
+                  "x": 1824,
+                  "y": 594
+                }
+              },
+              "routes": [
+                {
+                  "flow": [
+                    {
+                      "id": 8,
+                      "module": "google-drive:getAFile",
+                      "version": 4,
+                      "parameters": {
+                        "__IMTCONN__": null
+                      },
+                      "filter": {
+                        "name": "Archivo existe",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{length(16.body.files)}}",
+                              "b": "0",
+                              "o": "number:greater"
+                            }
+                          ]
+                        ]
+                      },
+                      "mapper": {
+                        "file": "{{16.body.files[].id}}",
+                        "select": "map",
+                        "formatDrawings": "image/jpeg",
+                        "formatDocuments": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "formatSpreadsheets": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "formatPresentations": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                      },
+                      "metadata": {
+                        "designer": {
+                          "x": 2124,
+                          "y": 444
+                        },
+                        "restore": {
+                          "expect": {
+                            "select": {
+                              "label": "Enter manually"
+                            },
+                            "formatDrawings": {
+                              "label": "JPEG"
+                            },
+                            "formatDocuments": {
+                              "label": "MS Word Document"
+                            },
+                            "formatSpreadsheets": {
+                              "label": "MS Excel"
+                            },
+                            "formatPresentations": {
+                              "label": "MS PowerPoint"
+                            }
+                          },
+                          "parameters": {
+                            "__IMTCONN__": {
+                              "data": {
+                                "scoped": "true",
+                                "connection": "google-drive"
+                              },
+                              "label": "RECONFIGURAR_CONEXION_EN_MAKE"
+                            }
+                          }
+                        },
+                        "parameters": [
+                          {
+                            "name": "__IMTCONN__",
+                            "type": "account:google-restricted,google-drive",
+                            "label": "Connection",
+                            "required": true
+                          }
+                        ],
+                        "expect": [
+                          {
+                            "name": "select",
+                            "type": "select",
+                            "label": "Enter a File ID",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "map",
+                                "value"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "formatDocuments",
+                            "type": "select",
+                            "label": "Convert Google Documents Files to Format",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                "application/pdf",
+                                "application/vnd.oasis.opendocument.text",
+                                "text/html",
+                                "text/plain",
+                                "application/rtf",
+                                "text/markdown"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "formatSpreadsheets",
+                            "type": "select",
+                            "label": "Convert Google Spreadsheets Files to Format",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                "application/x-vnd.oasis.opendocument.spreadsheet",
+                                "application/pdf",
+                                "text/csv"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "formatPresentations",
+                            "type": "select",
+                            "label": "Convert Google Slides Files to Format",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                "application/pdf"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "formatDrawings",
+                            "type": "select",
+                            "label": "Convert Google Drawings Files to Format",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "image/jpeg",
+                                "image/png",
+                                "image/svg+xml",
+                                "application/pdf"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "file",
+                            "type": "text",
+                            "label": "File ID",
+                            "required": true
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": 11,
+                      "module": "telegram:SendDocument",
+                      "version": 1,
+                      "parameters": {
+                        "__IMTCONN__": null
+                      },
+                      "mapper": {
+                        "data": "{{8.data}}",
+                        "chatId": "{{2.message.chat.id}}",
+                        "caption": "",
+                        "filename": "{{8.name}}",
+                        "sendType": "send_bydata",
+                        "parseMode": "",
+                        "contentType": "",
+                        "replyMarkup": "",
+                        "messageThreadId": "",
+                        "replyToMessageId": "",
+                        "replyMarkupAssembleType": "reply_markup_enter"
+                      },
+                      "metadata": {
+                        "designer": {
+                          "x": 2424,
+                          "y": 444
+                        },
+                        "restore": {
+                          "expect": {
+                            "sendType": {
+                              "label": "Data"
+                            },
+                            "parseMode": {
+                              "label": "Empty"
+                            },
+                            "contentType": {
+                              "mode": "chose",
+                              "label": "Empty"
+                            },
+                            "replyMarkupAssembleType": {
+                              "label": "Enter the Reply Markup"
+                            }
+                          },
+                          "parameters": {
+                            "__IMTCONN__": {
+                              "data": {
+                                "scoped": "true",
+                                "connection": "telegram"
+                              },
+                              "label": "RECONFIGURAR_CONEXION_EN_MAKE"
+                            }
+                          }
+                        },
+                        "parameters": [
+                          {
+                            "name": "__IMTCONN__",
+                            "type": "account:telegram",
+                            "label": "Connection",
+                            "required": true
+                          }
+                        ],
+                        "expect": [
+                          {
+                            "name": "chatId",
+                            "type": "text",
+                            "label": "Chat ID",
+                            "required": true
+                          },
+                          {
+                            "name": "messageThreadId",
+                            "type": "number",
+                            "label": "Message Thread ID"
+                          },
+                          {
+                            "name": "caption",
+                            "type": "text",
+                            "label": "Caption"
+                          },
+                          {
+                            "name": "sendType",
+                            "type": "select",
+                            "label": "Send by",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "send_bydata",
+                                "send_byurl",
+                                "send_byid"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "parseMode",
+                            "type": "select",
+                            "label": "Parse Mode",
+                            "validate": {
+                              "enum": [
+                                "Markdown",
+                                "HTML"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "contentType",
+                            "type": "select",
+                            "label": "Content Type"
+                          },
+                          {
+                            "name": "disableNotification",
+                            "type": "boolean",
+                            "label": "Disable Notifications"
+                          },
+                          {
+                            "name": "replyToMessageId",
+                            "type": "number",
+                            "label": "Original Message ID"
+                          },
+                          {
+                            "name": "replyMarkupAssembleType",
+                            "type": "select",
+                            "label": "Enter/Assemble the Reply Markup Field",
+                            "validate": {
+                              "enum": [
+                                "reply_markup_enter",
+                                "reply_markup_assemble"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "filename",
+                            "type": "text",
+                            "label": "File Name",
+                            "required": true
+                          },
+                          {
+                            "name": "data",
+                            "type": "buffer",
+                            "label": "Data",
+                            "required": true
+                          },
+                          {
+                            "name": "replyMarkup",
+                            "type": "text",
+                            "label": "Reply Markup"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": 22,
+                      "module": "datastore:AddRecord",
+                      "version": 1,
+                      "parameters": {
+                        "datastore": null
+                      },
+                      "mapper": {
+                        "key": "{{2.message.chat.id}}",
+                        "data": {
+                          "Historial": "{{20.data.Historial}}\nUsuario: {{2.message.text}}\nAsistente: {{3.data.choices[1].message.content}}"
+                        },
+                        "overwrite": true
+                      },
+                      "metadata": {
+                        "designer": {
+                          "x": 2724,
+                          "y": 444
+                        },
+                        "restore": {
+                          "expect": {
+                            "overwrite": {
+                              "mode": "chose"
+                            }
+                          },
+                          "parameters": {
+                            "datastore": {
+                              "label": "RECONFIGURAR_DATA_STORE_EN_MAKE"
+                            }
+                          }
+                        },
+                        "parameters": [
+                          {
+                            "name": "datastore",
+                            "type": "datastore",
+                            "label": "Data store",
+                            "required": true
+                          }
+                        ],
+                        "expect": [
+                          {
+                            "name": "key",
+                            "type": "text",
+                            "label": "Key"
+                          },
+                          {
+                            "name": "overwrite",
+                            "type": "boolean",
+                            "label": "Overwrite an existing record",
+                            "required": true
+                          },
+                          {
+                            "name": "data",
+                            "spec": [
+                              {
+                                "name": "Historial",
+                                "type": "text",
+                                "label": null
+                              }
+                            ],
+                            "type": "collection",
+                            "label": "Record"
+                          }
+                        ]
+                      },
+                      "onerror": [
+                        {
+                          "id": 27,
+                          "module": "google-email:sendAnEmail",
+                          "version": 4,
+                          "parameters": {
+                            "__IMTCONN__": null
+                          },
+                          "mapper": {
+                            "to": [
+                              "avisos@example.invalid"
+                            ],
+                            "content": "Hola,\r\n\r\nEl Data Store de tu asistente de Telegram ha alcanzado su límite de almacenamiento y no se pudo guardar la última conversación.\r\n\r\nLa ejecución ha quedado congelada en \"Incomplete Executions\". Por favor, ingresa a Make para liberar espacio y reprocesar el mensaje.\n\nRECUERDA: Debes ir a la seccion de \"Incomplete Executions\", presionar Resolve / Retry, y esa conversación guardada terminará de procesarse sin haberse perdido ningún dato.",
+                            "subject": "🚨 ALERTA: Data Store Lleno en Asistente de Telegram",
+                            "bodyType": "rawHtml"
+                          },
+                          "metadata": {
+                            "designer": {
+                              "x": 2720,
+                              "y": 123
+                            },
+                            "restore": {
+                              "expect": {
+                                "cc": {
+                                  "mode": "chose"
+                                },
+                                "to": {
+                                  "mode": "chose",
+                                  "items": [
+                                    null
+                                  ]
+                                },
+                                "bcc": {
+                                  "mode": "chose"
+                                },
+                                "from": {
+                                  "mode": "chose"
+                                },
+                                "bodyType": {
+                                  "label": "Raw HTML"
+                                },
+                                "attachments": {
+                                  "mode": "chose"
+                                },
+                                "emailHeaders": {
+                                  "mode": "chose"
+                                }
+                              },
+                              "parameters": {
+                                "__IMTCONN__": {
+                                  "data": {
+                                    "scoped": "true",
+                                    "connection": "google-email"
+                                  },
+                                  "label": "RECONFIGURAR_CONEXION_EN_MAKE"
+                                }
+                              }
+                            },
+                            "parameters": [
+                              {
+                                "name": "__IMTCONN__",
+                                "type": "account:google-email",
+                                "label": "Connection",
+                                "required": true
+                              }
+                            ],
+                            "expect": [
+                              {
+                                "name": "to",
+                                "spec": {
+                                  "name": "value",
+                                  "type": "email",
+                                  "label": "Recipient email address",
+                                  "required": true,
+                                  "validate": true
+                                },
+                                "type": "array",
+                                "label": "To",
+                                "required": true
+                              },
+                              {
+                                "name": "subject",
+                                "type": "text",
+                                "label": "Subject"
+                              },
+                              {
+                                "name": "bodyType",
+                                "type": "select",
+                                "label": "Body type",
+                                "required": true,
+                                "validate": {
+                                  "enum": [
+                                    "rawHtml",
+                                    "collection"
+                                  ]
+                                }
+                              },
+                              {
+                                "name": "attachments",
+                                "spec": {
+                                  "name": "value",
+                                  "spec": [
+                                    {
+                                      "name": "filename",
+                                      "type": "filename",
+                                      "label": "File name",
+                                      "required": true,
+                                      "semantic": "file:name"
+                                    },
+                                    {
+                                      "name": "data",
+                                      "type": "buffer",
+                                      "label": "Data",
+                                      "required": true,
+                                      "semantic": "file:data"
+                                    }
+                                  ],
+                                  "type": "collection",
+                                  "label": "Attachment"
+                                },
+                                "type": "array",
+                                "label": "Attachments"
+                              },
+                              {
+                                "name": "from",
+                                "type": "select",
+                                "label": "From"
+                              },
+                              {
+                                "name": "cc",
+                                "spec": {
+                                  "name": "value",
+                                  "type": "email",
+                                  "label": "Recipient email address"
+                                },
+                                "type": "array",
+                                "label": "CC recipients"
+                              },
+                              {
+                                "name": "bcc",
+                                "spec": {
+                                  "name": "value",
+                                  "type": "email",
+                                  "label": "Recipient email address"
+                                },
+                                "type": "array",
+                                "label": "BCC recipients"
+                              },
+                              {
+                                "name": "emailHeaders",
+                                "spec": {
+                                  "name": "value",
+                                  "spec": [
+                                    {
+                                      "name": "key",
+                                      "type": "text",
+                                      "label": "Key",
+                                      "required": true
+                                    },
+                                    {
+                                      "name": "value",
+                                      "type": "text",
+                                      "label": "Value"
+                                    }
+                                  ],
+                                  "type": "collection",
+                                  "label": "Email header"
+                                },
+                                "type": "array",
+                                "label": "Additional email headers"
+                              },
+                              {
+                                "name": "content",
+                                "type": "text",
+                                "label": "Content"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "flow": [
+                    {
+                      "id": 15,
+                      "module": "telegram:SendReplyMessage",
+                      "version": 1,
+                      "parameters": {
+                        "__IMTCONN__": null
+                      },
+                      "filter": {
+                        "name": "Archivo NO existe",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{length(16.body.files)}}",
+                              "b": "0",
+                              "o": "number:equal"
+                            }
+                          ]
+                        ]
+                      },
+                      "mapper": {
+                        "text": "Disculpe la molestia {{2.message.chat.first_name}}, no he podido localizar en nuestro almacenamiento un documento que coincida con los siguientes criterios de búsqueda: {{10.destino_o_lugar}}, {{10.pasajero}}, {{10.tipo_documento}}. Por favor, verifique si el archivo fue subido a la carpeta de Drive.",
+                        "chatId": "{{2.message.chat.id}}",
+                        "parseMode": "",
+                        "replyMarkup": "",
+                        "messageThreadId": "",
+                        "replyToMessageId": "",
+                        "replyMarkupAssembleType": "reply_markup_enter"
+                      },
+                      "metadata": {
+                        "designer": {
+                          "x": 2124,
+                          "y": 744
+                        },
+                        "restore": {
+                          "expect": {
+                            "parseMode": {
+                              "label": "Empty"
+                            },
+                            "disableNotification": {
+                              "mode": "chose"
+                            },
+                            "replyMarkupAssembleType": {
+                              "label": "Enter the Reply Markup"
+                            }
+                          },
+                          "parameters": {
+                            "__IMTCONN__": {
+                              "data": {
+                                "scoped": "true",
+                                "connection": "telegram"
+                              },
+                              "label": "RECONFIGURAR_CONEXION_EN_MAKE"
+                            }
+                          }
+                        },
+                        "parameters": [
+                          {
+                            "name": "__IMTCONN__",
+                            "type": "account:telegram",
+                            "label": "Connection",
+                            "required": true
+                          }
+                        ],
+                        "expect": [
+                          {
+                            "name": "chatId",
+                            "type": "text",
+                            "label": "Chat ID",
+                            "required": true
+                          },
+                          {
+                            "name": "text",
+                            "type": "text",
+                            "label": "Text",
+                            "required": true
+                          },
+                          {
+                            "name": "messageThreadId",
+                            "type": "number",
+                            "label": "Message Thread ID"
+                          },
+                          {
+                            "name": "parseMode",
+                            "type": "select",
+                            "label": "Parse Mode",
+                            "validate": {
+                              "enum": [
+                                "Markdown",
+                                "HTML"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "disableNotification",
+                            "type": "boolean",
+                            "label": "Disable Notifications"
+                          },
+                          {
+                            "name": "disableWebPagePreview",
+                            "type": "boolean",
+                            "label": "Disable Link Previews"
+                          },
+                          {
+                            "name": "replyToMessageId",
+                            "type": "number",
+                            "label": "Original Message ID"
+                          },
+                          {
+                            "name": "replyMarkupAssembleType",
+                            "type": "select",
+                            "label": "Enter/Assemble the Reply Markup Field",
+                            "validate": {
+                              "enum": [
+                                "reply_markup_enter",
+                                "reply_markup_assemble"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "replyMarkup",
+                            "type": "text",
+                            "label": "Reply Markup"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": 23,
+                      "module": "datastore:AddRecord",
+                      "version": 1,
+                      "parameters": {
+                        "datastore": null
+                      },
+                      "mapper": {
+                        "key": "{{2.message.chat.id}}",
+                        "data": {
+                          "Historial": "{{20.data.Historial}}\nUsuario: {{2.message.text}}\nAsistente: {{3.data.choices[1].message.content}}"
+                        },
+                        "overwrite": true
+                      },
+                      "metadata": {
+                        "designer": {
+                          "x": 2424,
+                          "y": 744
+                        },
+                        "restore": {
+                          "expect": {
+                            "overwrite": {
+                              "mode": "chose"
+                            }
+                          },
+                          "parameters": {
+                            "datastore": {
+                              "label": "RECONFIGURAR_DATA_STORE_EN_MAKE"
+                            }
+                          }
+                        },
+                        "parameters": [
+                          {
+                            "name": "datastore",
+                            "type": "datastore",
+                            "label": "Data store",
+                            "required": true
+                          }
+                        ],
+                        "expect": [
+                          {
+                            "name": "key",
+                            "type": "text",
+                            "label": "Key"
+                          },
+                          {
+                            "name": "overwrite",
+                            "type": "boolean",
+                            "label": "Overwrite an existing record",
+                            "required": true
+                          },
+                          {
+                            "name": "data",
+                            "spec": [
+                              {
+                                "name": "Historial",
+                                "type": "text",
+                                "label": null
+                              }
+                            ],
+                            "type": "collection",
+                            "label": "Record"
+                          }
+                        ]
+                      },
+                      "onerror": [
+                        {
+                          "id": 26,
+                          "module": "google-email:sendAnEmail",
+                          "version": 4,
+                          "parameters": {
+                            "__IMTCONN__": null
+                          },
+                          "mapper": {
+                            "to": [
+                              "avisos@example.invalid"
+                            ],
+                            "content": "Hola,\r\n\r\nEl Data Store de tu asistente de Telegram ha alcanzado su límite de almacenamiento y no se pudo guardar la última conversación.\r\n\r\nLa ejecución ha quedado congelada en \"Incomplete Executions\". Por favor, ingresa a Make para liberar espacio y reprocesar el mensaje.\n\nRECUERDA: Debes ir a la seccion de \"Incomplete Executions\", presionar Resolve / Retry, y esa conversación guardada terminará de procesarse sin haberse perdido ningún dato.",
+                            "subject": "🚨 ALERTA: Data Store Lleno en Asistente de Telegram",
+                            "bodyType": "rawHtml"
+                          },
+                          "metadata": {
+                            "designer": {
+                              "x": 2433,
+                              "y": 1063
+                            },
+                            "restore": {
+                              "expect": {
+                                "cc": {
+                                  "mode": "chose"
+                                },
+                                "to": {
+                                  "mode": "chose",
+                                  "items": [
+                                    null
+                                  ]
+                                },
+                                "bcc": {
+                                  "mode": "chose"
+                                },
+                                "from": {
+                                  "mode": "chose"
+                                },
+                                "bodyType": {
+                                  "label": "Raw HTML"
+                                },
+                                "attachments": {
+                                  "mode": "chose"
+                                },
+                                "emailHeaders": {
+                                  "mode": "chose"
+                                }
+                              },
+                              "parameters": {
+                                "__IMTCONN__": {
+                                  "data": {
+                                    "scoped": "true",
+                                    "connection": "google-email"
+                                  },
+                                  "label": "RECONFIGURAR_CONEXION_EN_MAKE"
+                                }
+                              }
+                            },
+                            "parameters": [
+                              {
+                                "name": "__IMTCONN__",
+                                "type": "account:google-email",
+                                "label": "Connection",
+                                "required": true
+                              }
+                            ],
+                            "expect": [
+                              {
+                                "name": "to",
+                                "spec": {
+                                  "name": "value",
+                                  "type": "email",
+                                  "label": "Recipient email address",
+                                  "required": true,
+                                  "validate": true
+                                },
+                                "type": "array",
+                                "label": "To",
+                                "required": true
+                              },
+                              {
+                                "name": "subject",
+                                "type": "text",
+                                "label": "Subject"
+                              },
+                              {
+                                "name": "bodyType",
+                                "type": "select",
+                                "label": "Body type",
+                                "required": true,
+                                "validate": {
+                                  "enum": [
+                                    "rawHtml",
+                                    "collection"
+                                  ]
+                                }
+                              },
+                              {
+                                "name": "attachments",
+                                "spec": {
+                                  "name": "value",
+                                  "spec": [
+                                    {
+                                      "name": "filename",
+                                      "type": "filename",
+                                      "label": "File name",
+                                      "required": true,
+                                      "semantic": "file:name"
+                                    },
+                                    {
+                                      "name": "data",
+                                      "type": "buffer",
+                                      "label": "Data",
+                                      "required": true,
+                                      "semantic": "file:data"
+                                    }
+                                  ],
+                                  "type": "collection",
+                                  "label": "Attachment"
+                                },
+                                "type": "array",
+                                "label": "Attachments"
+                              },
+                              {
+                                "name": "from",
+                                "type": "select",
+                                "label": "From"
+                              },
+                              {
+                                "name": "cc",
+                                "spec": {
+                                  "name": "value",
+                                  "type": "email",
+                                  "label": "Recipient email address"
+                                },
+                                "type": "array",
+                                "label": "CC recipients"
+                              },
+                              {
+                                "name": "bcc",
+                                "spec": {
+                                  "name": "value",
+                                  "type": "email",
+                                  "label": "Recipient email address"
+                                },
+                                "type": "array",
+                                "label": "BCC recipients"
+                              },
+                              {
+                                "name": "emailHeaders",
+                                "spec": {
+                                  "name": "value",
+                                  "spec": [
+                                    {
+                                      "name": "key",
+                                      "type": "text",
+                                      "label": "Key",
+                                      "required": true
+                                    },
+                                    {
+                                      "name": "value",
+                                      "type": "text",
+                                      "label": "Value"
+                                    }
+                                  ],
+                                  "type": "collection",
+                                  "label": "Email header"
+                                },
+                                "type": "array",
+                                "label": "Additional email headers"
+                              },
+                              {
+                                "name": "content",
+                                "type": "text",
+                                "label": "Content"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 5,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "slots": null,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": true,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "us2.make.com",
+    "notes": []
+  }
+}
