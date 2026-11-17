@@ -1,40 +1,49 @@
-# Configuración y puesta en marcha
+# Configuración del escenario
 
-El archivo `blueprints/asistente-viaje.public.blueprint.json` contiene valores ficticios y referencias sin configurar; **no se debe activar tal cual**.
+El [blueprint compartido](../blueprints/asistente-viaje.public.blueprint.json) es una versión **anonimizada** del escenario Make. Incluye datos de ejemplo y marcadores para que cada persona pueda conectar sus propios servicios.
 
 ## Requisitos
 
-- Cuenta Make con acceso a los módulos usados y capacidad de crear un Data Store.
-- Bot de Telegram creado y controlado por quien despliega.
-- Cuenta y API key vigente de Groq, almacenada de manera segura en Make.
-- Cuenta Google Drive con acceso a una carpeta de documentos de prueba.
-- Cuenta Gmail para notificaciones (opcional; si se conserva el manejo de errores existente).
-- Documentos de prueba **ficticios** para verificar el flujo antes de usar información personal.
+- Una cuenta de **Make** con acceso a los módulos y a un Data Store.
+- Un bot propio de **Telegram**.
+- Una clave de API válida de **Groq**.
+- Acceso a una carpeta de **Google Drive** con archivos de prueba.
+- Una conexión de **Gmail** para las alertas opcionales.
+- Un itinerario y documentos ficticios con los que validar el funcionamiento.
 
-## Importar el blueprint
+## Importar en Make
 
-1. En Make, crea un **escenario nuevo**.
-2. En el editor, usa el menú de tres puntos → **Import blueprint** y selecciona el JSON público.
-3. Guarda el escenario después de revisar la configuración y las conexiones. La importación no restituye tus credenciales de servicios externos.
-4. Si Make muestra problemas al importar por los identificadores de conexión vacíos, vuelve a seleccionar la conexión o recrea el módulo afectado. La compatibilidad de importación de esta versión anonimizada **no fue validada en una cuenta Make**.
+1. Crear un escenario en Make.
+2. Abrir el menú de tres puntos del editor y seleccionar **Import blueprint**.
+3. Elegir el archivo `blueprints/asistente-viaje.public.blueprint.json`.
+4. Reconectar los módulos que requieran autenticación y configurar los identificadores propios.
+5. Guardar y probar el flujo con datos ficticios.
 
-Referencia: [Make — Scenario blueprints](https://help.make.com/blueprints).
+La importación de este blueprint anonimizado todavía no se ha verificado en una segunda cuenta de Make; algunas referencias deben asignarse de nuevo desde el editor.
 
-## Configurar módulos
+Documentación oficial: [Scenario blueprints — Make](https://help.make.com/blueprints).
 
-| Módulo | Qué configurar |
+## Configuración por módulo
+
+| Módulo | Configuración |
 |---|---|
-| **2 — Telegram trigger** | Crear/reconectar bot y webhook; revisar qué tipos de mensaje acepta |
-| **20, 21, 22, 23 — Data Store** | Crear almacén de registros con campo de texto `Historial`; seleccionar el mismo almacén en todos |
-| **3 — HTTP / Groq** | Establecer credencial nueva, modelo compatible, verificar `POST`, `messages` y definición de `buscar_documento` |
-| **3 — System prompt** | Cambiar únicamente el itinerario ficticio por uno verdadero en entorno privado, sin publicarlo en GitHub |
-| **16 — Google Drive API** | Reconectar cuenta; sustituir `REEMPLAZAR_ID_CARPETA_DRIVE` por una carpeta propia; verificar permisos y criterios `q` |
-| **8 — Google Drive file** | Reconectar cuenta; comprobar cómo selecciona una coincidencia y entrega el contenido binario |
-| **4, 11, 15 — Telegram output** | Reconectar bot y confirmar chat de destino |
-| **30, 24, 27, 26 — Gmail** | Reconectar remitente; sustituir `avisos@example.invalid` por una dirección que controles |
+| **2 — Telegram** | Vincular el bot y registrar el webhook |
+| **20, 21, 22 y 23 — Data Store** | Crear un almacén con campo de texto `Historial` y seleccionarlo en los cuatro módulos |
+| **3 — HTTP / Groq** | Configurar un método seguro para la credencial de Groq; revisar modelo, mensajes y herramienta `buscar_documento` |
+| **3 — Instrucciones del asistente** | Sustituir el itinerario ficticio del mensaje de sistema por el correspondiente a la instancia privada |
+| **16 — Búsqueda en Google Drive** | Conectar la cuenta y sustituir `REEMPLAZAR_ID_CARPETA_DRIVE` por el identificador de una carpeta propia |
+| **8 — Descarga de Google Drive** | Conectar la cuenta y comprobar la recuperación de los archivos |
+| **4, 11 y 15 — Respuestas Telegram** | Vincular el bot para los mensajes de texto y archivos |
+| **30, 24, 27 y 26 — Alertas Gmail** | Conectar Gmail y personalizar la dirección de notificaciones ficticia |
 
+## Organización de los archivos
 
-## Convención de archivos
+El mecanismo de búsqueda utiliza el nombre de los archivos y combina los criterios disponibles. Conviene definir una nomenclatura consistente y probar cómo se comporta `name contains` cuando se agregan criterios de tipo, destino y pasajero.
 
-La búsqueda del blueprint usa `name contains` y criterios acumulativos con `and`. Es importante que cada término necesario sea compatible con el **comienzo** del nombre del archivo. El mecanismo original puede resultar restrictivo cuando solicita simultáneamente tipo, ciudad y pasajero. Para pruebas reproducibles, primero usa casos simples con un solo criterio y luego verifica las combinaciones. Consulta [`examples/nombres-archivos.txt`](../examples/nombres-archivos.txt).
+Hay ejemplos ficticios en [examples/nombres-archivos.txt](../examples/nombres-archivos.txt).
 
+## Validación
+
+La puesta en marcha se completa comprobando los flujos de texto, la recuperación de documentos, las conversaciones con contexto y las alertas correspondientes. Los casos están organizados en [PRUEBAS.md](PRUEBAS.md).
+
+Los documentos reales, las credenciales y los datos de los viajeros permanecen en la instancia privada de Make y Google Drive, no en este repositorio.
