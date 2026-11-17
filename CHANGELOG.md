@@ -2,9 +2,9 @@
 
 ## 0.1.0 — 2026-11-16
 
-- Documentación inicial del escenario exportado de Make.
-- Blueprint público con configuración personal anonimizada y credenciales sustituidas.
-- Diagramas Mermaid, guía de configuración, plan de pruebas y roadmap.
-- Validación estática offline con script y pruebas unitarias.
+- Primera publicación del proyecto de portfolio.
+- Blueprint público de Make con datos de demostración.
+- Documentación de arquitectura, configuración, plan de pruebas y roadmap.
+- Incorporación de validaciones estáticas y ejecución automática con GitHub Actions.
 
-**Nota:** versión del repositorio documental, no una nueva versión productiva validada del escenario Make.
+El versionado corresponde a los archivos del repositorio.
