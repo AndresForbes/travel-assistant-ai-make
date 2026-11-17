@@ -1,13 +1,9 @@
-# Ejemplos ficticios (sin archivos reales):
+# Ejemplos de nombres ficticios de documentos
 boleto_tren_Oporto_Ana.pdf
 hotel_Lisboa_Ana.pdf
 seguro_viaje_Ana.pdf
 
-# LIMITACIÓN DEL BLUEPRINT ACTUAL:
-# Google Drive API `name contains` compara prefijos del nombre (no subcadenas arbitrarias).
-# Con `name contains 'boleto' AND name contains 'Oporto'`, un único nombre de archivo
-# normalmente NO satisfará simultáneamente las dos condiciones si solo una está al principio.
-# Por ello, estos nombres son orientativos para el proyecto, NO una garantía de que
-# las búsquedas combinadas del escenario original funcionen.
-# Sugerencia de diseño: listar en la carpeta, procesar tokens y filtrar en Make,
-# o mantener un índice de documentos con metadatos estructurados.
+# La búsqueda del escenario usa Google Drive API con name contains.
+# Los criterios se combinan por medio de AND y las coincidencias
+# dependen del prefijo del nombre. Estos ejemplos sirven para
+# diseñar y validar una convención de nombres en una instancia de prueba.
