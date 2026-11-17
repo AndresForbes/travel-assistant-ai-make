@@ -1,0 +1,25 @@
+# Do not commit Make exports that might contain credentials or personal data.
+*.blueprint.json
+!blueprints/*.public.blueprint.json
+
+# Local credentials / data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.log
+secrets/
+private/
+backups/
+exports/
+documentos-reales/
+
+# Test / OS artifacts
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+Thumbs.db
+*.zip
