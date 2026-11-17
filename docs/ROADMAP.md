@@ -1,9 +1,17 @@
-## Evolución sugerida por fases
+# Roadmap del proyecto
 
-**Fase 1 — Seguridad y fiabilidad:** rotación de credenciales, autorización de usuarios, primer mensaje sin historial, manejo de errores, selección inequívoca de documentos y pruebas de regresión.
+El asistente está planteado como una base sobre la que seguir explorando nuevas integraciones y funcionalidades. Las siguientes fases reúnen ideas de evolución para próximas versiones.
 
-**Fase 2 — Mantenibilidad:** fuente estructurada de itinerarios, convención de nombres o índice de documentos, normalización de búsquedas, historial acotado, observabilidad y documentación de configuración.
+## Fase 1 — Seguridad y fiabilidad
 
-**Fase 3 — Extensibilidad:** soporte para varios viajes/usuarios, consulta semántica del contenido de archivos cuando aporte valor, controles de acceso por viajero, pruebas de rendimiento y estrategia de despliegue.
+Gestión segura de credenciales, autorización de usuarios, tratamiento del historial inicial, manejo de errores, selección de documentos y pruebas de regresión.
 
-No describir las fases como funcionalidades terminadas. Este roadmap debe evolucionar según las pruebas y las necesidades reales del proyecto.
+## Fase 2 — Mantenibilidad
+
+Itinerarios en una fuente estructurada, mejora de la nomenclatura o índice de documentos, normalización de búsquedas, optimización del historial y mayor observabilidad.
+
+## Fase 3 — Extensibilidad
+
+Soporte para varios viajes y usuarios, controles de acceso por viajero, posibilidades de búsqueda semántica dentro de documentos y pruebas de rendimiento.
+
+Estas líneas de trabajo se irán priorizando a medida que el proyecto evolucione.
