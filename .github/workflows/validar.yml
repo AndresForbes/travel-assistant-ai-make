@@ -1,0 +1,19 @@
+name: Validación de blueprint público
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validar blueprint y patrones sensibles
+        run: python3 scripts/check_blueprint.py
+      - name: Pruebas unitarias offline
+        run: python3 -m unittest discover -s tests -v
