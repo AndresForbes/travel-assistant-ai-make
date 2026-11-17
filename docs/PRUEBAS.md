@@ -1,30 +1,37 @@
-# Plan de pruebas y criterios de aceptación
+# Plan de pruebas
 
-**Estado:** casos definidos, **no ejecutados contra el escenario real**. Solo se incluyeron verificaciones estáticas del archivo compartible. La aceptación requiere una instancia Make con credenciales de prueba.
+La validación del proyecto contempla dos niveles: **pruebas estáticas del blueprint público** y **pruebas funcionales del escenario configurado en Make**.
 
-| Caso | Entrada / condición | Resultado esperado |
+## Validaciones automáticas
+
+El repositorio incluye verificaciones offline para confirmar la estructura del archivo JSON, los módulos esperados, la definición de `buscar_documento` y patrones habituales de credenciales. Estas comprobaciones se ejecutan en GitHub Actions.
+
+```bash
+python3 scripts/check_blueprint.py
+python3 -m unittest discover -s tests -v
+```
+
+Estas pruebas comprueban el archivo exportado. Las pruebas funcionales requieren ejecutar el escenario de Make con conexiones y datos de demostración.
+
+## Casos funcionales
+
+| Caso | Consulta o situación | Resultado esperado |
 |---|---|---|
-| T01 | «¿Cuál es la ruta del viaje?» | Respuesta coherente con el itinerario inyectado |
-| T02 | Preguntar por una fecha no incluida | No inventa datos; indica que no consta |
-| T03 | «Envíame el boleto de tren» con único archivo coincidente | Llamada `buscar_documento`, descarga y envío correcto por Telegram |
-| T04 | Solicitar un documento inexistente | Mensaje de búsqueda sin coincidencias |
-| T05 | «Envíame el boleto» → «El de Ana» | Reutilización del contexto, sin repetir preguntas ya contestadas |
-| T06 | Pedir documentos con dos nombres similares | No entregar documento incorrecto: desambiguar o aplicar criterio explícito (mejora pendiente) |
-| T07 | Mensaje de foto o nota de voz sin `message.text` | No provocar ejecución incorrecta: filtrar/tratar explícitamente (mejora pendiente) |
-| T08 | Chat no autorizado | Acceso denegado antes de Groq o Drive (control pendiente) |
-| T09 | Error HTTP de Groq | Notificación o fallback comprobable; revisar ruta de error |
-| T10 | Error de Data Store | Alerta recibida y recuperación verificada sin pérdida silenciosa |
-| T11 | Error de Google Drive o permiso insuficiente | Respuesta controlada; no publicar información interna (mejora pendiente) |
-| T12 | Historial vacío en primera interacción | Flujo válido y registro inicial creado |
-| T13 | Conversación extensa | Historial acotado y coste/latencia aceptables (mejora pendiente) |
-| T14 | Boleto `reserva_tren_...` al buscar `tren` | Identificar limitación de coincidencia por prefijo; ajustar estrategia |
-| T15 | Solicitud con criterios de ciudad + pasajero | Comprobar comportamiento de `if(10.destino_o_lugar + 10.pasajero; ...)` |
-| T16 | Archivo duplicado / varias coincidencias | Documentar selección y evitar entrega equivocada (mejora pendiente) |
+| T01 | Pregunta sobre el itinerario configurado | Respuesta basada en la información proporcionada |
+| T02 | Solicitud de información que no consta en el itinerario | Respuesta que indique la ausencia de ese dato |
+| T03 | Solicitud de un documento con coincidencia única | Interpretación de la solicitud y envío por Telegram |
+| T04 | Solicitud de documento sin coincidencias | Mensaje de búsqueda sin resultados |
+| T05 | Solicitud inicial seguida de una aclaración, como «El de Ana» | Interpretación de la referencia usando historial |
+| T06 | Reinicio o primera conversación de un chat | Recuperación o inicialización coherente del historial |
+| T07 | Error de comunicación con Groq | Activación de la ruta de alerta correspondiente |
+| T08 | Error al guardar el historial | Activación de la notificación configurada |
 
-## Cómo registrar resultados
+## Pruebas de ampliación
 
-Para cada caso anotar fecha, versión de escenario, datos ficticios de entrada, módulos ejecutados, resultado de Telegram, efecto en Data Store, coste aproximado/operaciones Make y evidencia **sin datos personales ni tokens**.
+Como parte de futuras iteraciones, se pueden incorporar casos adicionales: solicitudes con múltiples archivos coincidentes, mensajes que no sean de texto, control de chats autorizados, conversaciones largas y búsqueda avanzada con varios criterios.
 
-## Calidad del blueprint público
+## Registro de evidencias
 
-La validación incluida en `scripts/check_blueprint.py` comprueba estructura JSON, presencia de módulos clave, formato del body de Groq y patrones evidentes de secretos. Los tests unitarios replican comprobaciones estáticas. 
+Para documentar una ejecución se pueden registrar la fecha, la versión del escenario, los datos ficticios de entrada, los módulos ejecutados y el resultado observado en Telegram y Data Store.
+
+**Estado de las pruebas:** la validación automatizada del blueprint forma parte del repositorio. La matriz funcional se proporciona como plan reproducible; no se presenta como un conjunto de resultados ya ejecutados en esta publicación.
