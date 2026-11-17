@@ -1,113 +1,112 @@
-# Asistente de viaje con IA · Make + Telegram + Google Drive
+# Asistente de viaje con IA
 
-**Automatización conversacional para consultar un itinerario y solicitar documentos de viaje desde Telegram.**
+**Asistente conversacional creado en Make para consultar información de un viaje y recuperar documentos desde Telegram.**
 
-Proyecto personal / demostración técnica desarrollado sobre **Make**. Integra **Groq (modelo `openai/gpt-oss-120b`)**, **Telegram**, **Google Drive**, **Make Data Store** y **Gmail**. El asistente identifica cuándo responder una pregunta sobre el itinerario y cuándo solicitar a Make la recuperación de un archivo mediante *function calling*.
+Desarrollé este proyecto personal para explorar cómo combinar **automatización low-code, modelos de lenguaje e integración de servicios** en una experiencia sencilla para el usuario: hacer una pregunta por Telegram y recibir una respuesta sobre el itinerario o solicitar un archivo sin tener que buscarlo manualmente en una carpeta.
 
+El escenario integra **Make, Telegram, Groq, Google Drive, Make Data Store y Gmail**, con un modelo de IA configurado a través de la API de Groq (`openai/gpt-oss-120b`).
 
-## Problema que resuelve
+## El problema
 
-Durante un viaje, las reservas y los boletos suelen estar repartidos entre carpetas y correos, y resulta difícil encontrar el documento oportuno o recordar un horario. Este escenario centraliza el acceso a la **información precargada de un itinerario** y a una **carpeta designada de Google Drive**, usando Telegram como interfaz.
+Los datos importantes de un viaje suelen estar distribuidos entre reservas, boletos, comprobantes y anotaciones. En lugar de consultar varias fuentes por separado, el asistente utiliza Telegram como punto de acceso a dos tipos de información:
 
-**Consultas de ejemplo:**
+- **Itinerario del viaje:** información incorporada previamente al contexto del asistente para responder preguntas generales.
+- **Documentos de viaje:** archivos disponibles en una carpeta determinada de Google Drive, que Make puede buscar y enviar a Telegram.
 
-- «¿Qué transporte tenemos entre Lisboa y Oporto?» → El modelo responde con la información precargada.
-- «Enviame el boleto de tren a Oporto» → El modelo solicita `buscar_documento`; Make busca por nombre de archivo, descarga el resultado y lo envía por Telegram.
-- «El de Ana» → El modelo intenta interpretar la aclaración con el historial del chat.
-- Si la búsqueda no arroja resultados, el bot informa que no encontró coincidencias.
+## Funcionalidades
 
-## Arquitectura del escenario
+- **Conversación sobre el viaje:** respuestas basadas en el itinerario previamente configurado.
+- **Identificación de solicitudes de archivos:** la IA distingue las consultas informativas de las peticiones de documentos.
+- **Function calling:** el modelo genera argumentos estructurados para la herramienta `buscar_documento`; Make interpreta esa solicitud y ejecuta la búsqueda.
+- **Integración con Google Drive:** consulta archivos por nombre dentro de una carpeta específica y recupera los documentos coincidentes.
+- **Entrega por Telegram:** respuestas de texto, documentos y mensajes cuando una búsqueda no devuelve coincidencias.
+- **Contexto conversacional:** historial almacenado por chat mediante Make Data Store para interpretar consultas sucesivas.
+- **Alertas operativas:** avisos por Gmail ante determinados errores del servicio de IA o del almacenamiento del historial.
+
+## Arquitectura
 
 ```mermaid
 flowchart TD
-    A[Usuario en Telegram] --> B[Telegram: Watch Updates]
-    B --> C[Data Store: recuperar historial por chat ID]
-    C --> D[HTTP: Groq Chat Completions + herramientas]
-    D --> E{Router según respuesta de IA}
-    E -->|Respuesta de texto| F[Telegram: enviar respuesta]
-    F --> G[Data Store: guardar historial]
-    E -->|Llamada buscar_documento| H[JSON: analizar argumentos]
-    H --> I[Google Drive API: buscar por nombre en carpeta]
-    I --> J{¿Hay archivos?}
-    J -->|Sí| K[Google Drive: descargar archivo]
-    K --> L[Telegram: enviar documento]
-    L --> M[Data Store: guardar historial]
-    J -->|No| N[Telegram: informar que no se encontró]
-    N --> O[Data Store: guardar historial]
-    D -. fallo HTTP .-> P[Gmail: alerta]
-    G -. fallo de guardado .-> Q[Gmail: alerta]
-    M -. fallo de guardado .-> Q
-    O -. fallo de guardado .-> Q
+    A[Mensaje en Telegram] --> B[Recuperar historial en Data Store]
+    B --> C[Groq API: modelo e instrucciones]
+    C --> D{Tipo de respuesta}
+    D -->|Texto| E[Responder por Telegram]
+    D -->|buscar_documento| F[Interpretar argumentos JSON]
+    F --> G[Buscar archivos en Google Drive]
+    G --> H{¿Hay coincidencias?}
+    H -->|Sí| I[Descargar y enviar archivo]
+    H -->|No| J[Informar resultado de búsqueda]
+    E --> K[Actualizar historial]
+    I --> K
+    J --> K
+    C -. Error HTTP .-> L[Alerta por Gmail]
+    K -. Error de guardado .-> L
 ```
 
-La herramienta `buscar_documento` **no se ejecuta dentro del modelo**: el modelo devuelve una llamada estructurada y **Make** la implementa con su conexión a Google Drive. Es *tool/function calling orquestado en Make*.
+El modelo no se conecta directamente a Google Drive. Su función es interpretar la intención y proponer los parámetros de la herramienta; **Make orquesta la ejecución**, consulta Drive y envía el resultado.
 
-## Tecnologías y responsabilidades
+## Tecnologías utilizadas
 
-| Componente | Función en el flujo |
+| Tecnología | Aplicación en el proyecto |
 |---|---|
-| Make | Orquestación, filtros, rutas, manejo básico de errores |
-| Telegram Bot | Entrada de mensajes; salida de respuestas y archivos |
-| Groq API | Clasificación de intención, respuesta basada en el itinerario y extracción de criterios mediante tool calling |
-| `openai/gpt-oss-120b` | Modelo configurado en el blueprint revisado; sujeto a disponibilidad del proveedor |
-| Google Drive API v3 | Localización de archivos **por nombre** dentro de una carpeta específica |
-| Make Data Store | Historial en texto por identificador de chat |
-| Gmail | Notificaciones configuradas ante fallos de IA o escritura de historial |
+| **Make** | Orquestación del escenario, routers, filtros y gestión de módulos |
+| **Telegram Bot** | Interfaz conversacional y envío de archivos |
+| **Groq API** | Acceso al modelo de lenguaje mediante peticiones HTTP |
+| **`openai/gpt-oss-120b`** | Modelo configurado para interpretar consultas y generar llamadas a herramientas |
+| **Google Drive API v3** | Búsqueda y recuperación de documentos de una carpeta |
+| **Make Data Store** | Persistencia del historial de conversación por chat |
+| **Gmail** | Notificaciones de determinados errores |
 
-## Qué hace y qué no hace
+## Ejemplos de interacción
 
-**Implementado en el diseño:** diálogo con contexto precargado, solicitudes de documentos mediante parámetros estructurados, búsqueda en Drive, envío por Telegram, historial por conversación y determinadas alertas.
+*Los ejemplos utilizan un itinerario y nombres ficticios.*
 
-**No implementado en este blueprint:** leer o comprender el interior de PDFs; OCR; RAG o búsqueda vectorial; sincronización automática del itinerario desde Google Drive; validación explícita de usuarios autorizados; resolución robusta de archivos duplicados; batería de pruebas de extremo a extremo.
+| Consulta por Telegram | Respuesta del escenario |
+|---|---|
+| «¿Qué transporte tenemos entre Lisboa y Oporto?» | Consulta el contexto precargado y formula la respuesta |
+| «Enviame el boleto de tren» | Solicita `buscar_documento` y comienza la búsqueda en Drive |
+| «El de Ana» | Utiliza el historial para interpretar a qué documento se refiere la aclaración |
+| Solicitud sin coincidencias | Envía un mensaje indicando que no se encontró el archivo |
 
-El itinerario está **escrito dentro del mensaje de sistema enviado a Groq**. No se extrae dinámicamente de los boletos, reservas ni documentos de Drive. La capacidad de recuperación de archivos depende de cómo se nombren los archivos.
+La búsqueda actual se realiza **a partir del nombre de los archivos**, no mediante lectura del contenido de los PDF. El itinerario se configura en las instrucciones del asistente y no se sincroniza automáticamente desde Drive. Estos criterios forman parte del diseño de esta versión.
 
-## Ejecutar una copia
+## Explorar o reproducir el proyecto
 
-1. Crear un escenario nuevo en Make e importar [`blueprints/asistente-viaje.public.blueprint.json`](blueprints/asistente-viaje.public.blueprint.json). Es una **plantilla anonimizada**, no una configuración lista para producción.
-2. Crear o reconectar Telegram, Google Drive y Gmail, además del Data Store y el webhook. Colocar una clave **nueva** de Groq mediante un método de autenticación seguro compatible con Make.
-3. En el módulo HTTP, sustituir el itinerario de ejemplo por información propia; en la búsqueda de Drive, ajustar el ID de carpeta y la convención de nombres de archivos.
-4. Aplicar controles de autorización y revisar las limitaciones antes de habilitar el bot. Validar con los casos de [`docs/PRUEBAS.md`](docs/PRUEBAS.md).
+El repositorio incluye un [blueprint público de Make](blueprints/asistente-viaje.public.blueprint.json), con datos ficticios y marcadores de configuración. El escenario original fue adaptado para compartir su arquitectura sin incluir credenciales, datos de viajeros ni reservas reales.
 
-Guía detallada: **[`docs/CONFIGURACION.md`](docs/CONFIGURACION.md)**. La documentación oficial de Make aclara que, después de importar un blueprint, hay que configurar las conexiones propias: [Scenario blueprints](https://help.make.com/blueprints).
+Para ponerlo en marcha en otra cuenta:
 
-## Estructura del repositorio
+1. Importar el blueprint en un escenario nuevo de Make.
+2. Reconectar los servicios de Telegram, Google Drive y Gmail, además del webhook y el Data Store.
+3. Configurar una credencial propia de Groq y un itinerario de prueba.
+4. Indicar la carpeta de Google Drive y cargar documentos de demostración.
+5. Validar las consultas y el envío de archivos con los casos de prueba del repositorio.
 
-```text
-travel-assistant-make/
-├── README.md
-├── blueprints/
-│   └── asistente-viaje.public.blueprint.json   # Export anonimizado; requiere configuración
-├── docs/
-│   ├── ARQUITECTURA.md
-│   ├── CONFIGURACION.md
-│   ├── PRUEBAS.md
-│   └── ROADMAP.md
-├── examples/
-│   ├── itinerario-ficticio.md
-│   └── nombres-archivos.txt
-├── scripts/
-│   └── check_blueprint.py
-├── tests/
-│   └── test_blueprint.py
-├── .github/workflows/
-│   └── validar.yml
-├── .gitignore
-└── CHANGELOG.md
-```
+El detalle de configuración se encuentra en [docs/CONFIGURACION.md](docs/CONFIGURACION.md).
 
-## Control de calidad local
+## Documentación
 
-Se incluye una comprobación **estática y offline** del JSON, su topología básica y algunos patrones de credenciales:
+- [Arquitectura técnica](docs/ARQUITECTURA.md): módulos, rutas y funcionamiento de la herramienta.
+- [Configuración](docs/CONFIGURACION.md): importación y conexiones necesarias.
+- [Plan de pruebas](docs/PRUEBAS.md): escenarios de validación funcional.
+- [Roadmap](docs/ROADMAP.md): posibles líneas de evolución.
+- [Ejemplo de itinerario ficticio](examples/itinerario-ficticio.md) y [nombres de archivos](examples/nombres-archivos.txt).
+
+## Validación del blueprint
+
+Incluí un script y pruebas unitarias para verificar de forma **estática** la estructura del JSON, los módulos principales, la definición de `buscar_documento` y algunos patrones habituales de credenciales. También se ejecutan con GitHub Actions.
 
 ```bash
 python3 scripts/check_blueprint.py
 python3 -m unittest discover -s tests -v
 ```
 
-Estas pruebas **no** prueban funcionamiento real de las APIs ni seguridad integral. La integración solo puede verificarse en un entorno Make configurado.
+Estas verificaciones son independientes de Make y no sustituyen las pruebas funcionales con las conexiones configuradas.
 
-## Autoría y alcance
+## Evolución
 
-Proyecto de aprendizaje y portfolio sobre automatización de procesos con herramientas low-code e inteligencia artificial.
+La hoja de ruta contempla mejoras en la gestión de documentos, la administración de itinerarios, los controles de acceso y la posibilidad de ampliar el asistente a más viajeros y viajes. Las próximas líneas de trabajo están descritas en el [roadmap](docs/ROADMAP.md).
 
+---
+
+**Proyecto personal de automatización e IA aplicada.** Su objetivo es mostrar la integración de herramientas, el diseño de un flujo conversacional y la utilización de *function calling* para conectar un modelo de lenguaje con acciones concretas en Make.
